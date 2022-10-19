@@ -7,6 +7,10 @@ static void btree_node_traverse(struct btree_node_t *self)
 {
 	int i = 0;
 
+	if (!self || !self->number) {
+		printf("[%s] node is empty [%p]\n", __func__, self);
+	}
+
 	while (i < self->number) {
 		if (self->leaf == false) {
 			self->children[i]->ops->traverse(self->children[i]);
@@ -18,6 +22,7 @@ static void btree_node_traverse(struct btree_node_t *self)
 		self->children[i]->ops->traverse(self->children[i]);
 	}
 }
+
 
 static struct btree_node_t* btree_node_search(struct btree_node_t *self, int k)
 {
@@ -55,7 +60,7 @@ static void remove_from_leaf(struct btree_node_t *self, int idx)
 
 static int get_predecessor(struct btree_node_t *self, int idx)
 {
-	struct btree_node_t *cur = self->children[idx+1];
+	struct btree_node_t *cur = self->children[idx];
 
 	while (!cur->leaf)
 		cur = cur->children[cur->number];
@@ -199,7 +204,8 @@ static void btree_node_remove(struct btree_node_t *self, int k)
 			remove_from_non_leaf(self, idx);
 	} else {
 		if (self->leaf) {
-			printf("There is no suck key in the tree: %d\n", k);
+			printf("[%s][%p]There is no suck key in the tree: %d idx[%d]\n",
+				__func__, self, k, idx);
 			return;
 		}
 
@@ -229,6 +235,7 @@ static struct btree_node_t *btree_node_ctr(int degree, bool leaf)
 		printf("[%s] cant alloc memory for node\n", __func__);
 		return NULL;
 	}
+	memset(node, 0, sizeof(struct btree_node_t));
 
 	node->degree = degree;
 	node->leaf = leaf;
@@ -239,6 +246,7 @@ static struct btree_node_t *btree_node_ctr(int degree, bool leaf)
 		free(node);
 		return NULL;
 	}
+	memset(node->keys, 0, sizeof(int)*(2*degree - 1));
 
 	node->children = malloc(sizeof(*node->children) *(2 * degree));
 	if (!node->children) {
@@ -247,6 +255,7 @@ static struct btree_node_t *btree_node_ctr(int degree, bool leaf)
 		free(node);
 		return NULL;
 	}
+	memset(node->children, 0, sizeof(*node->children) *(2 * degree));
 
 	node->number = 0;
 	node->ops = &btn_ops;
@@ -317,7 +326,12 @@ static void insert_not_full(struct btree_node_t *self, int k)
 
 static void btree_node_dtor(struct btree_node_t *self)
 {
-	printf("[%s] \n", __func__);
+	printf("[%s] [%p]\n", __func__, self);
+	free(self->keys);
+	free(self->children);
+	self->keys = NULL;
+	self->children = NULL;
+
 	return;
 }
 
@@ -347,6 +361,9 @@ static void btree_insert(struct btree_t *self, int k)
 {
 	if (!self->root) {
 		self->root = btree_node_ctr(self->degree, true);
+		if (!self->root) {
+			exit(-1);
+		}
 		self->root->keys[0] = k;
 		self->root->number = 1;
 	} else {
@@ -406,9 +423,37 @@ struct btree_t *btree_ctor(int degree)
 }
 
 
+static struct btree_node_t *btree_cleanup(struct btree_t *self, struct btree_node_t *node)
+{
+	int i = 0;
+
+	if (!node)
+		return NULL;
+
+	if (!node->leaf)
+		btree_cleanup(self, node->children[i]);
+
+	return node;
+}
+
 static void btree_dtor(struct btree_t *self)
 {
-	printf("[%s] %p\n", __func__, self);
+	printf("[%s] Call destructor %p\n", __func__, self);
+
+	if (!self || !self->root) {
+		printf("[%s] self or root is NULL\n", __func__);
+		return;
+	}
+
+	while (self->root) {
+		struct btree_node_t *node = btree_cleanup(self, self->root);
+		if (node) {
+			int i;
+			for (i = 0; i < node->number; i++) {
+				btree_remove(self, node->keys[i]);
+			}
+		}
+	}
 }
 
 static struct btree_ops bt_ops = {

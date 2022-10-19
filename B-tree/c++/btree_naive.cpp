@@ -120,7 +120,7 @@ void BTreeNode::removeFromNonLeaf(int idx)
 
 int BTreeNode::getPredecessor(int idx)
 {
-	BTreeNode *cur = m_children[idx+1];
+	BTreeNode *cur = m_children[idx];
 
 	while (!cur->m_leaf)
 		cur = cur->m_children[cur->m_number];

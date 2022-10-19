@@ -29,7 +29,10 @@ int main(void)
 		printf("\n");
 	}
 
+	printf("\n");
 	tree->ops->dtor(tree);
+	printf("Traverse after destructor\n");
+	tree->ops->traverse(tree);
 	free(tree);
 	return 0;
 }
