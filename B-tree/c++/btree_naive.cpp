@@ -175,8 +175,8 @@ void BTreeNode::borrowFromPrevious(int idx)
 
 	m_keys[idx-1] = sibling->m_keys[sibling->m_number - 1];
 
-	child->m_number += 1;
-	sibling->m_number -= 1;
+	++child->m_number;
+	--sibling->m_number;
 }
 
 
