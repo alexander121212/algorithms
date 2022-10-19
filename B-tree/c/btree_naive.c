@@ -1,7 +1,5 @@
 #include "btree_naive.h"
 
-static struct btree_node_ops btn_ops;
-static struct btree_ops bt_ops;
 
 static void btree_node_traverse(struct btree_node_t *self)
 {
@@ -13,13 +11,13 @@ static void btree_node_traverse(struct btree_node_t *self)
 
 	while (i < self->number) {
 		if (self->leaf == false) {
-			self->children[i]->ops->traverse(self->children[i]);
+			btree_node_traverse(self->children[i]);
 		}
 		printf("[%d] ", self->keys[i++]);
 	}
 
 	if (self->leaf == false) {
-		self->children[i]->ops->traverse(self->children[i]);
+		btree_node_traverse(self->children[i]);
 	}
 }
 
@@ -37,7 +35,7 @@ static struct btree_node_t* btree_node_search(struct btree_node_t *self, int k)
 	if (self->leaf)
 		return NULL;
 
-	return self->children[i]->ops->search(self->children[i], k);
+	return btree_node_search(self->children[i], k);
 }
 
 static int btree_node_find_greater_or_equal(struct btree_node_t *self, int k)
@@ -173,6 +171,8 @@ static void fill(struct btree_node_t *self, int idx)
 }
 
 
+static void btree_node_remove(struct btree_node_t *self, int k);
+
 static void remove_from_non_leaf(struct btree_node_t *self, int idx)
 {
 	int k = self->keys[idx];
@@ -181,14 +181,14 @@ static void remove_from_non_leaf(struct btree_node_t *self, int idx)
 		int pred = get_predecessor(self, idx);
 
 		self->keys[idx] = pred;
-		self->children[idx]->ops->remove(self->children[idx], pred);
+		btree_node_remove(self->children[idx], pred);
 	} else if (self->children[idx+1]->number >= self->degree) {
 		int succ = get_successor(self, idx);
 		self->keys[idx] = succ;
-		self->children[idx+1]->ops->remove(self->children[idx+1], succ);
+		btree_node_remove(self->children[idx+1], succ);
 	} else {
 		merge_children(self, idx);
-		self->children[idx]->ops->remove(self->children[idx], k);
+		btree_node_remove(self->children[idx], k);
 	}
 }
 
@@ -216,9 +216,9 @@ static void btree_node_remove(struct btree_node_t *self, int k)
 		}
 
 		if (flag && idx > self->number)
-			self->children[idx-1]->ops->remove(self->children[idx-1], k);
+			btree_node_remove(self->children[idx-1], k);
 		else
-			self->children[idx]->ops->remove(self->children[idx], k);
+			btree_node_remove(self->children[idx], k);
 	}
 }
 
@@ -258,7 +258,6 @@ static struct btree_node_t *btree_node_ctr(int degree, bool leaf)
 	memset(node->children, 0, sizeof(*node->children) *(2 * degree));
 
 	node->number = 0;
-	node->ops = &btn_ops;
 
 	return node;
 }
@@ -266,7 +265,7 @@ static struct btree_node_t *btree_node_ctr(int degree, bool leaf)
 
 static void split_child(struct btree_node_t *self, int position, struct btree_node_t *splited_node)
 {
-	struct btree_node_t *new_node = self->ops->ctor(splited_node->degree, splited_node->leaf);
+	struct btree_node_t *new_node = btree_node_ctr(splited_node->degree, splited_node->leaf);
 	if (!new_node) {
 		exit(-1);
 	}
@@ -335,29 +334,21 @@ static void btree_node_dtor(struct btree_node_t *self)
 	return;
 }
 
-static struct btree_node_ops btn_ops = {
-	.ctor = btree_node_ctr,
-	.traverse = btree_node_traverse,
-	.search = btree_node_search,
-	.remove = btree_node_remove,
-	.dtor = btree_node_dtor,
-};
 
-
-static void btree_traverse(struct btree_t *self)
+void btree_traverse(struct btree_t *self)
 {
 	if (self->root)
-		self->root->ops->traverse(self->root);
+		btree_node_traverse(self->root);
 }
 
 
-static struct btree_node_t *btree_search(struct btree_t *self, int k)
+struct btree_node_t *btree_search(struct btree_t *self, int k)
 {
-	return self->root ? self->root->ops->search(self->root, k) : NULL;
+	return self->root ? btree_node_search(self->root, k) : NULL;
 }
 
 
-static void btree_insert(struct btree_t *self, int k)
+void btree_insert(struct btree_t *self, int k)
 {
 	if (!self->root) {
 		self->root = btree_node_ctr(self->degree, true);
@@ -368,7 +359,7 @@ static void btree_insert(struct btree_t *self, int k)
 		self->root->number = 1;
 	} else {
 		if (self->root->number == 2 * self->degree - 1) {
-			struct btree_node_t *s = self->root->ops->ctor(self->degree, false);
+			struct btree_node_t *s = btree_node_ctr(self->degree, false);
 
 			s->children[0] = self->root;
 
@@ -388,14 +379,14 @@ static void btree_insert(struct btree_t *self, int k)
 }
 
 
-static void btree_remove(struct btree_t *self, int k)
+void btree_remove(struct btree_t *self, int k)
 {
 	if (!self->root) {
 		printf("The tree is empty\n");
 		return;
 	}
 
-	self->root->ops->remove(self->root, k);
+	btree_node_remove(self->root, k);
 
 	if (self->root->number == 0) {
 		struct btree_node_t *tmp = self->root;
@@ -404,7 +395,7 @@ static void btree_remove(struct btree_t *self, int k)
 		else
 			self->root = self->root->children[0];
 
-		tmp->ops->dtor(tmp);
+		btree_node_dtor(tmp);
 		free(tmp);
 	}
 }
@@ -419,7 +410,6 @@ struct btree_t *btree_ctor(int degree)
 
 	tree->root = NULL;
 	tree->degree = degree;
-	tree->ops = &bt_ops;
 }
 
 
@@ -436,7 +426,7 @@ static struct btree_node_t *btree_cleanup(struct btree_t *self, struct btree_nod
 	return node;
 }
 
-static void btree_dtor(struct btree_t *self)
+void btree_dtor(struct btree_t *self)
 {
 	printf("[%s] Call destructor %p\n", __func__, self);
 
@@ -455,12 +445,3 @@ static void btree_dtor(struct btree_t *self)
 		}
 	}
 }
-
-static struct btree_ops bt_ops = {
-	.ctor	= btree_ctor,
-	.insert = btree_insert,
-	.remove = btree_remove,
-	.traverse = btree_traverse,
-	.search = btree_search,
-	.dtor	= btree_dtor,
-};

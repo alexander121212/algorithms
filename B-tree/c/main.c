@@ -15,24 +15,24 @@ int main(void)
 	int elem;
 
 	for (elem = 0; elem < sizeof(elems_ins)/sizeof(elems_ins[0]); elem++) {
-		tree->ops->insert(tree, elems_ins[elem]);
+		btree_insert(tree, elems_ins[elem]);
 	}
 
 	printf("Traversal of tree constructed is\n");
-	tree->ops->traverse(tree);
+	btree_traverse(tree);
 	printf("\n");
 
 	for (elem = 0; elem < sizeof(elems_rem)/sizeof(elems_rem[0]); elem++) {
-		tree->ops->remove(tree, elems_rem[elem]);
+		btree_remove(tree, elems_rem[elem]);
 		printf("Traversal of tree after removing [%d]\n", elems_rem[elem]);
-		tree->ops->traverse(tree);
+		btree_traverse(tree);
 		printf("\n");
 	}
 
 	printf("\n");
-	tree->ops->dtor(tree);
+	btree_dtor(tree);
 	printf("Traverse after destructor\n");
-	tree->ops->traverse(tree);
+	btree_traverse(tree);
 	free(tree);
 	return 0;
 }
