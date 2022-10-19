@@ -1,5 +1,5 @@
-#ifndef _BTREE_NAIVE_
-#define _BTREE_NAIVE_
+#ifndef _BTREE_NAIVE_H_
+#define _BTREE_NAIVE_H_
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -68,4 +68,4 @@ private:
 };
 
 
-#endif /* _BTREE_NAIVE_ */
+#endif /* _BTREE_NAIVE_H_ */
